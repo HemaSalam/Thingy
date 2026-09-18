@@ -262,9 +262,20 @@
         </footer>
     </div>
     <script>
+        // Using public test HLS streams to verify front-end player logic
         const STREAMS = [
-            { videoId: "cam1", statusId: "status-cam1", errorId: "error-cam1", url: "/hls/km400/1/playlist.m3u8" },
-            { videoId: "cam2", statusId: "status-cam2", errorId: "error-cam2", url: "/hls/km250/1/playlist.m3u8" }
+            { 
+                videoId: "cam1", 
+                statusId: "status-cam1", 
+                errorId: "error-cam1", 
+                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" 
+            },
+            { 
+                videoId: "cam2", 
+                statusId: "status-cam2", 
+                errorId: "error-cam2", 
+                url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" 
+            }
         ];
 
         function initStream(cfg) {
@@ -298,7 +309,6 @@
             }
         }
 
-        // Initialize streams immediately without authentication
         document.addEventListener("DOMContentLoaded", () => {
             STREAMS.forEach(initStream);
         });
