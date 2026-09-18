@@ -1,0 +1,306 @@
+<head>
+    <meta charset="utf-8">
+    <title>KM Meter — Live</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500&amp;family=DM+Mono:wght@400&amp;display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #faf9f7;
+            --border: #e8e4df;
+            --text: #1a1714;
+            --muted: #9c9690;
+            --success: #4a7c59;
+            --mono: 'DM Mono', monospace;
+            --serif: 'Cormorant', serif;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #auth-overlay {
+            display: none !important;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            min-height: 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            height: 56px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-family: var(--serif);
+            font-size: 22px;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+            color: var(--text);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            color: var(--success);
+            text-transform: uppercase;
+        }
+
+        .live-dot {
+            width: 5px;
+            height: 5px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.25;
+            }
+        }
+
+        .user-info {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 28px;
+            gap: 16px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .grid {
+            flex: 1;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr;
+            min-height: 0;
+        }
+
+        @media (min-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .card-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .card-status {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .card-status.active {
+            color: var(--success);
+        }
+
+        .video-wrapper {
+            flex: 1;
+            background: #000;
+            position: relative;
+            min-height: 0;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+
+        .video-error {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: #f5f5f5;
+        }
+
+        .video-error.visible {
+            display: flex;
+        }
+
+        footer {
+            padding: 10px 28px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .footer-status {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 899px) {
+            .card {
+                min-height: 220px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">KM Meter</div>
+            <div class="header-right">
+                <div class="live-badge">
+                    <div class="live-dot"></div>Live
+                </div>
+                <div class="user-info" id="user-name">Local User</div>
+            </div>
+        </header>
+        <main>
+            <div class="grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">KM400</div>
+                        <div class="card-status" id="status-cam1">Connecting</div>
+                    </div>
+                    <div class="video-wrapper">
+                        <video id="cam1" autoplay="" muted="" playsinline="" controls=""></video>
+                        <div class="video-error" id="error-cam1">Stream unavailable</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">KM250</div>
+                        <div class="card-status" id="status-cam2">Connecting</div>
+                    </div>
+                    <div class="video-wrapper">
+                        <video id="cam2" autoplay="" muted="" playsinline="" controls=""></video>
+                        <div class="video-error" id="error-cam2">Stream unavailable</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <footer>
+            <div class="footer-status" id="footer-status">Initialising streams</div>
+        </footer>
+    </div>
+    <script>
+        const STREAMS = [
+            { videoId: "cam1", statusId: "status-cam1", errorId: "error-cam1", url: "/hls/km400/1/playlist.m3u8" },
+            { videoId: "cam2", statusId: "status-cam2", errorId: "error-cam2", url: "/hls/km250/1/playlist.m3u8" }
+        ];
+
+        function initStream(cfg) {
+            const video = document.getElementById(cfg.videoId);
+            const error = document.getElementById(cfg.errorId);
+            const status = document.getElementById(cfg.statusId);
+            const onReady = () => { 
+                status.textContent = "Active"; 
+                status.classList.add("active"); 
+                error.classList.remove("visible"); 
+                document.getElementById("footer-status").textContent = "Streams active"; 
+            };
+            const onError = () => { 
+                error.classList.add("visible"); 
+                status.textContent = "Unavailable"; 
+                status.classList.remove("active"); 
+            };
+
+            if (Hls.isSupported()) {
+                const hls = new Hls({ lowLatencyMode: false, debug: false });
+                hls.loadSource(cfg.url); 
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, onReady);
+                hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) onError(); });
+            } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                video.src = cfg.url;
+                video.addEventListener("loadedmetadata", onReady);
+                video.addEventListener("error", onError);
+            } else { 
+                onError(); 
+            }
+        }
+
+        // Initialize streams immediately without authentication
+        document.addEventListener("DOMContentLoaded", () => {
+            STREAMS.forEach(initStream);
+        });
+    </script>
+</body>
