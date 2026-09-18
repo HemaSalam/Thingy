@@ -220,7 +220,8 @@
                         <div class="card-status" id="status-cam1">Connecting</div>
                     </div>
                     <div class="video-wrapper">
-                        <video id="cam1" autoplay muted playsinline controls crossorigin="anonymous"></video>
+                        <!-- Removed crossorigin attributes that can block local testing -->
+                        <video id="cam1" autoplay muted playsinline controls></video>
                         <div class="video-error" id="error-cam1">Stream unavailable</div>
                     </div>
                 </div>
@@ -230,7 +231,7 @@
                         <div class="card-status" id="status-cam2">Connecting</div>
                     </div>
                     <div class="video-wrapper">
-                        <video id="cam2" autoplay muted playsinline controls crossorigin="anonymous"></video>
+                        <video id="cam2" autoplay muted playsinline controls></video>
                         <div class="video-error" id="error-cam2">Stream unavailable</div>
                     </div>
                 </div>
@@ -241,21 +242,18 @@
         </footer>
     </div>
     <script>
-        // Uses relative URLs when running directly on kmmeter.com, or full HTTPS URLs when tested externally
-        const isSameOrigin = window.location.hostname.includes("kmmeter.com");
-        
         const STREAMS = [
             { 
                 videoId: "cam1", 
                 statusId: "status-cam1", 
                 errorId: "error-cam1", 
-                url: isSameOrigin ? "/hls/km400/1/playlist.m3u8" : "https://kmmeter.com/hls/km400/1/playlist.m3u8" 
+                url: "https://kmmeter.com/hls/km400/1/playlist.m3u8" 
             },
             { 
                 videoId: "cam2", 
                 statusId: "status-cam2", 
                 errorId: "error-cam2", 
-                url: isSameOrigin ? "/hls/km250/1/playlist.m3u8" : "https://kmmeter.com/hls/km250/1/playlist.m3u8" 
+                url: "https://kmmeter.com/hls/km250/1/playlist.m3u8" 
             }
         ];
 
@@ -269,55 +267,61 @@
                 status.classList.add("active"); 
                 error.classList.remove("visible"); 
                 document.getElementById("footer-status").textContent = "Streams active"; 
+                
+                // Explicitly trigger play and catch browser autoplay rejections
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => console.warn("Browser delayed autoplay:", err));
+                }
             };
 
-            const onError = () => { 
+            const onError = (msg) => { 
                 error.classList.add("visible"); 
-                status.textContent = "Unavailable"; 
+                error.textContent = msg || "Stream unavailable";
+                status.textContent = "Failed"; 
                 status.classList.remove("active"); 
             };
 
             if (Hls.isSupported()) {
-                const hls = new Hls({
-                    lowLatencyMode: false,
-                    debug: false,
-                    // Use same-origin credentials only when running directly on domain
-                    xhrSetup: function (xhr, url) {
-                        if (isSameOrigin) {
-                            xhr.withCredentials = true;
-                        }
-                    }
-                });
-
-                hls.loadSource(cfg.url);
+                const hls = new Hls({ debug: false });
+                
+                // 1. Attach media first (best practice for hls.js)
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.play().catch(() => {});
-                    onReady();
+                
+                // 2. Load source only after media is successfully attached
+                hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+                    hls.loadSource(cfg.url);
                 });
 
-                hls.on(Hls.Events.ERROR, (e, data) => {
+                // 3. Play video once the playlist is parsed
+                hls.on(Hls.Events.MANIFEST_PARSED, onReady);
+
+                // 4. Handle errors cleanly without infinite looping
+                hls.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                hls.startLoad();
+                                hls.destroy();
+                                onError("Network or CORS Blocked");
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
+                                // Only try to recover media buffering errors, not 404s/CORS
                                 hls.recoverMediaError();
                                 break;
                             default:
                                 hls.destroy();
-                                onError();
+                                onError("Fatal Stream Error");
                                 break;
                         }
                     }
                 });
             } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                // Native Safari support fallback
                 video.src = cfg.url;
                 video.addEventListener("loadedmetadata", onReady);
-                video.addEventListener("error", onError);
+                video.addEventListener("error", () => onError("Native Playback Failed"));
             } else {
-                onError();
+                onError("HLS Not Supported in Browser");
             }
         }
 
