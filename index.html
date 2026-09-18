@@ -9,9 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500&amp;family=DM+Mono:wght@400&amp;display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        *,
-        *::before,
-        *::after {
+        *, *::before, *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
@@ -27,8 +25,7 @@
             --serif: 'Cormorant', serif;
         }
 
-        html,
-        body {
+        html, body {
             height: 100%;
             background: var(--bg);
             color: var(--text);
@@ -36,10 +33,6 @@
             font-size: 13px;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
-        }
-
-        #auth-overlay {
-            display: none !important;
         }
 
         #app {
@@ -93,12 +86,8 @@
         }
 
         @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.25;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
         }
 
         .user-info {
@@ -127,9 +116,7 @@
         }
 
         @media (min-width: 900px) {
-            .grid {
-                grid-template-columns: 1fr 1fr;
-            }
+            .grid { grid-template-columns: 1fr 1fr; }
         }
 
         .card {
@@ -166,9 +153,7 @@
             text-transform: uppercase;
         }
 
-        .card-status.active {
-            color: var(--success);
-        }
+        .card-status.active { color: var(--success); }
 
         .video-wrapper {
             flex: 1;
@@ -198,9 +183,7 @@
             background: #f5f5f5;
         }
 
-        .video-error.visible {
-            display: flex;
-        }
+        .video-error.visible { display: flex; }
 
         footer {
             padding: 10px 28px;
@@ -215,12 +198,6 @@
             letter-spacing: 0.06em;
             text-transform: uppercase;
         }
-
-        @media (max-width: 899px) {
-            .card {
-                min-height: 220px;
-            }
-        }
     </style>
 </head>
 
@@ -232,7 +209,7 @@
                 <div class="live-badge">
                     <div class="live-dot"></div>Live
                 </div>
-                <div class="user-info" id="user-name">Authenticated Session</div>
+                <div class="user-info" id="user-name">Local User</div>
             </div>
         </header>
         <main>
@@ -243,7 +220,7 @@
                         <div class="card-status" id="status-cam1">Connecting</div>
                     </div>
                     <div class="video-wrapper">
-                        <video id="cam1" autoplay="" muted="" playsinline="" controls=""></video>
+                        <video id="cam1" autoplay muted playsinline controls crossorigin="anonymous"></video>
                         <div class="video-error" id="error-cam1">Stream unavailable</div>
                     </div>
                 </div>
@@ -253,7 +230,7 @@
                         <div class="card-status" id="status-cam2">Connecting</div>
                     </div>
                     <div class="video-wrapper">
-                        <video id="cam2" autoplay="" muted="" playsinline="" controls=""></video>
+                        <video id="cam2" autoplay muted playsinline controls crossorigin="anonymous"></video>
                         <div class="video-error" id="error-cam2">Stream unavailable</div>
                     </div>
                 </div>
@@ -264,18 +241,21 @@
         </footer>
     </div>
     <script>
+        // Uses relative URLs when running directly on kmmeter.com, or full HTTPS URLs when tested externally
+        const isSameOrigin = window.location.hostname.includes("kmmeter.com");
+        
         const STREAMS = [
             { 
                 videoId: "cam1", 
                 statusId: "status-cam1", 
                 errorId: "error-cam1", 
-                url: "https://kmmeter.com/hls/km400/1/playlist.m3u8" 
+                url: isSameOrigin ? "/hls/km400/1/playlist.m3u8" : "https://kmmeter.com/hls/km400/1/playlist.m3u8" 
             },
             { 
                 videoId: "cam2", 
                 statusId: "status-cam2", 
                 errorId: "error-cam2", 
-                url: "https://kmmeter.com/hls/km250/1/playlist.m3u8" 
+                url: isSameOrigin ? "/hls/km250/1/playlist.m3u8" : "https://kmmeter.com/hls/km250/1/playlist.m3u8" 
             }
         ];
 
@@ -283,14 +263,14 @@
             const video = document.getElementById(cfg.videoId);
             const error = document.getElementById(cfg.errorId);
             const status = document.getElementById(cfg.statusId);
-            
+
             const onReady = () => { 
                 status.textContent = "Active"; 
                 status.classList.add("active"); 
                 error.classList.remove("visible"); 
                 document.getElementById("footer-status").textContent = "Streams active"; 
             };
-            
+
             const onError = () => { 
                 error.classList.add("visible"); 
                 status.textContent = "Unavailable"; 
@@ -298,24 +278,46 @@
             };
 
             if (Hls.isSupported()) {
-                const hls = new Hls({ 
-                    lowLatencyMode: false, 
+                const hls = new Hls({
+                    lowLatencyMode: false,
                     debug: false,
+                    // Use same-origin credentials only when running directly on domain
                     xhrSetup: function (xhr, url) {
-                        xhr.withCredentials = true; // Forwards session cookies with XHR requests
+                        if (isSameOrigin) {
+                            xhr.withCredentials = true;
+                        }
                     }
                 });
-                
-                hls.loadSource(cfg.url); 
+
+                hls.loadSource(cfg.url);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, onReady);
-                hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) onError(); });
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => {});
+                    onReady();
+                });
+
+                hls.on(Hls.Events.ERROR, (e, data) => {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                onError();
+                                break;
+                        }
+                    }
+                });
             } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
                 video.src = cfg.url;
                 video.addEventListener("loadedmetadata", onReady);
                 video.addEventListener("error", onError);
-            } else { 
-                onError(); 
+            } else {
+                onError();
             }
         }
 
