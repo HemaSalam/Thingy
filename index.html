@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <title>KM Meter — Live</title>
@@ -230,7 +232,7 @@
                 <div class="live-badge">
                     <div class="live-dot"></div>Live
                 </div>
-                <div class="user-info" id="user-name">Local User</div>
+                <div class="user-info" id="user-name">Authenticated Session</div>
             </div>
         </header>
         <main>
@@ -281,12 +283,14 @@
             const video = document.getElementById(cfg.videoId);
             const error = document.getElementById(cfg.errorId);
             const status = document.getElementById(cfg.statusId);
+            
             const onReady = () => { 
                 status.textContent = "Active"; 
                 status.classList.add("active"); 
                 error.classList.remove("visible"); 
                 document.getElementById("footer-status").textContent = "Streams active"; 
             };
+            
             const onError = () => { 
                 error.classList.add("visible"); 
                 status.textContent = "Unavailable"; 
@@ -294,7 +298,14 @@
             };
 
             if (Hls.isSupported()) {
-                const hls = new Hls({ lowLatencyMode: false, debug: false });
+                const hls = new Hls({ 
+                    lowLatencyMode: false, 
+                    debug: false,
+                    xhrSetup: function (xhr, url) {
+                        xhr.withCredentials = true; // Forwards session cookies with XHR requests
+                    }
+                });
+                
                 hls.loadSource(cfg.url); 
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, onReady);
@@ -313,3 +324,4 @@
         });
     </script>
 </body>
+</html>
